@@ -30,6 +30,10 @@ def Ren2018_algorithm(filename):
         utime = f['Time/UnixTime'][:]
         alt = f['NeFromPower/Altitude'][beam,:]
         Ne = f['NeFromPower/Ne_NoTr'][:,beam,:]
+        fit_Te = f['FittedParams/Fits'][:,beam,:,-1,1] ##### Olu
+        fit_Ti = f['FittedParams/Fits'][:,beam,:,0,1] ##### Olu
+        fit_Ne = f['FittedParams/Fits'][:,beam,:] ##### Olu
+        fit_alt = f['FittedParams/Altitude'][beam,:] ##### Olu
 
     # transform density and altitude arrays into correct
     Ne = np.log10(Ne[:,np.isfinite(alt) & (alt>100000.)])
@@ -54,6 +58,7 @@ def Ren2018_algorithm(filename):
     altrange = [250.,400.]
     aidx = [np.argmin(np.abs(a-alt)) for a in altrange]
     Ne_F2 = np.nanmean(Ne[:,aidx[0]:aidx[1]], axis=-1)
+    fit_aidx = [np.nanargmin(np.abs(a-fit_alt/1000.)) for a in altrange]
 
     # Apply 3-point median filter if time cadence less than 2.5 minutes
     if np.mean(np.diff(utime[:,0]))<2.5*60.:
@@ -68,6 +73,9 @@ def Ren2018_algorithm(filename):
     time = list()
     peak = list()
     prominence = list()
+    avgte = list()
+    avgti = list()
+    avgne = list()
     for p in peaks0:
         start = np.argmin(np.abs((utime[p,0]-1.*60.*60.)-utime[:,0]))
         end = np.argmin(np.abs((utime[p,0]+1.*60.*60.)-utime[:,0]))
@@ -79,10 +87,13 @@ def Ren2018_algorithm(filename):
             time.append([utime[p,0], utime[sidx,0], utime[eidx,0]])
             peak.append(prop['peak_heights'][idx])
             prominence.append(prop['prominences'][idx])
+            avgte.append(np.nanmean(fit_Te[sidx:eidx,fit_aidx[0]:fit_aidx[1]]))
+            avgti.append(np.nanmean(fit_Ti[sidx:eidx,fit_aidx[0]:fit_aidx[1]]))
+            avgne.append(np.nanmean(fit_Ne[sidx:eidx,fit_aidx[0]:fit_aidx[1]]))
         except ValueError:
             continue
 
-    return time, peak, prominence
+    return time, peak, prominence, avgte, avgti, avgne
 
 
 
@@ -147,7 +158,7 @@ def Perry2018_algorithm(filename):
 
 
  
-Ren2018 = dict(time=list(), peak=list(), prominence=list())
+Ren2018 = dict(time=list(), peak=list(), prominence=list(), avgTe=list(), avgTi=list(), avgNe=list())
 Perry2018 = dict(time=list(), patch_index=list(), num_beams=list())
 
 amisrdb = AMISR_lookup('RISR-N')
@@ -161,10 +172,13 @@ for exp in experiment_list:
     else:
         print(filename)
 
-    time, peak, prom = Ren2018_algorithm(filename)
+    time, peak, prom, avgte, avgti, avgne = Ren2018_algorithm(filename)
     Ren2018['time'].extend(time)
     Ren2018['peak'].extend(peak)
     Ren2018['prominence'].extend(prom)
+    Ren2018['avgTe'].extend(avgte)
+    Ren2018['avgTi'].extend(avgti)
+    Ren2018['avgNe'].extend(avgne)
     time, patch_index, Nbeam = Perry2018_algorithm(filename)
     Perry2018['time'].extend(time)
     Perry2018['patch_index'].extend(patch_index)
