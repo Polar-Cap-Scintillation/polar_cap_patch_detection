@@ -15,24 +15,13 @@ import re
 import h5py
 from procdbtools.amisr_lookup import AMISR_lookup
 
-starttime = dt.datetime(2009,1,1)
-endtime = dt.datetime(2023,1,1)
-output_file = 'patch_database_risrn.h5'
+starttime = dt.datetime(2016,1,1)
+endtime = dt.datetime(2016,2,1)
+output_file = 'test_patch_database_risrn.h5'
 
-patches = {'peak':[],'time':[],'prominence':[],'fidx':[],'lb_idx':[],'rb_idx':[]}
+def Ren2018_algorithm(filename):
 
-amisrdb = AMISR_lookup('RISR-N')
-
-experiment_list = amisrdb.find_experiments(starttime, endtime)
-
-for exp in experiment_list:
-    filename = amisrdb.select_datafile(exp, pulse='lp')
-    if not filename:
-        continue
-    else:
-        print(filename)
-
-    # read the file
+    # read input file
     with h5py.File(filename, 'r') as f:
 
         beam = np.argmax(f['BeamCodes'][:,2])    # select beam with highest elevation angle
@@ -76,22 +65,132 @@ for exp in experiment_list:
     # For each peak idenified, consider a 2 hour window around the peak and make sure it can
     #   still be identified.  If so, save the time the patch occured and the charactristics of
     #   the peak.
+    time = list()
+    peak = list()
+    prominence = list()
     for p in peaks0:
         start = np.argmin(np.abs((utime[p,0]-1.*60.*60.)-utime[:,0]))
         end = np.argmin(np.abs((utime[p,0]+1.*60.*60.)-utime[:,0]))
         peaks, prop = sig.find_peaks(Ne_F2[start:end], prominence=np.log10(2), height=0., width=0.)
         try:
             idx = list(start+peaks).index(p)
-            patches['fidx'].append(p)
-            patches['time'].append(utime[p,0])
-            patches['peak'].append(prop['peak_heights'][idx])
-            patches['prominence'].append(prop['prominences'][idx])
-            patches['lb_idx'].append(prop['left_bases'][idx]+start)
-            patches['rb_idx'].append(prop['right_bases'][idx]+start)
+            sidx = prop['left_bases'][idx]+start
+            eidx = prop['right_bases'][idx]+start
+            time.append([utime[p,0], utime[sidx,0], utime[eidx,0]])
+            peak.append(prop['peak_heights'][idx])
+            prominence.append(prop['prominences'][idx])
         except ValueError:
             continue
 
+    return time, peak, prominence
+
+
+
+def Perry2018_algorithm(filename):
+
+    with h5py.File(filename, 'r') as f:
+        dens = f['FittedParams']['Ne'][:]
+        err = f['FittedParams']['dNe'][:]
+        rng = f['FittedParams']['Range'][:]
+        alt = f['FittedParams']['Altitude'][:]
+        utime = f['Time']['UnixTime'][:]
+        bco = f['BeamCodes'][:]
+    
+        chi2 = f['FittedParams/FitInfo']['chi2'][:]
+        fitcode = f['FittedParams/FitInfo']['fitcode'][:]
+        
+    Nbeam = len(bco[:,0])
+    
+    # filtering
+    dens[dens>1e13]=np.nan
+    dens[dens<0]=np.nan
+    
+    dens[err>dens] = np.nan
+    
+    dens[(chi2<0.1) & (chi2>10.)] = np.nan
+    dens[(fitcode<1) & (fitcode>4)] = np.nan
+    
+    # determine the average time between records and the number of records in a 30 minute window
+    dt = np.mean(utime[1:,0]-utime[:-1,0])
+    win = int(30.*60./dt)
+    
+    # determine which altitude indicesed correspond to 200 and 500 km
+    alt_c, alt_r = np.nonzero((alt >= 200*1000.) & (alt <=500*1000.))
+    Ngates = len(alt_c)
+    
+    # find median of points in the correct altitude range for each time
+    med_dens = np.nanmedian(dens[:,alt_c, alt_r], axis=1)
+    
+    pad1 = np.full(int(win/2), np.nan)
+    if win % 2 != 0:
+        pad2 = pad1
+    else:
+        pad2 = pad1[:-1]
+    pad_med_dens = np.concatenate((pad1, med_dens, pad2))
+    sw_dens = np.lib.stride_tricks.sliding_window_view(pad_med_dens, win)
+    backgrnd = np.nanmean(sw_dens, axis=1)
+    
+    patch_index = np.empty(backgrnd.shape)
+    
+    for tidx in range(len(backgrnd)):
+    
+        patch_beam = 0.
+        for bidx in range(Nbeam):
+            condition = ((dens[tidx,bidx,:]>=2*backgrnd[tidx]) & (alt[bidx,:]>=200*1000.) & (alt[bidx,:]<=500*1000.))
+            conv = np.convolve(condition.astype(int), np.ones(3), mode='valid')
+            patch_beam += np.sum(conv>=3)
+
+        # patch_index[tidx] = patch_beam/Ngates*100.
+        patch_index[tidx] = patch_beam
+
+    return utime[:,0], patch_index, Nbeam
+
+
+ 
+Ren2018 = dict(time=list(), peak=list(), prominence=list())
+Perry2018 = dict(time=list(), patch_index=list(), num_beams=list())
+
+amisrdb = AMISR_lookup('RISR-N')
+
+experiment_list = amisrdb.find_experiments(starttime, endtime)
+
+for exp in experiment_list:
+    filename = amisrdb.select_datafile(exp, pulse='lp')
+    if not filename:
+        continue
+    else:
+        print(filename)
+
+    time, peak, prom = Ren2018_algorithm(filename)
+    Ren2018['time'].extend(time)
+    Ren2018['peak'].extend(peak)
+    Ren2018['prominence'].extend(prom)
+    time, patch_index, Nbeam = Perry2018_algorithm(filename)
+    Perry2018['time'].extend(time)
+    Perry2018['patch_index'].extend(patch_index)
+    Perry2018['num_beams'].extend(np.full(time.shape, Nbeam))
+
+
+
 # save list of patch parameters to output hdf5 file
 with h5py.File(output_file, 'w') as h5:
-    for key, val in patches.items():
-        h5.create_dataset(key, data=np.array(val))
+    grp = h5.create_group('Ren2018')
+    for key, val in Ren2018.items():
+        print(key, len(val))
+        grp.create_dataset(key, data=np.array(val))
+    grp = h5.create_group('Perry2018')
+    for key, val in Perry2018.items():
+        print(key, len(val))
+        grp.create_dataset(key, data=np.array(val))
+
+
+# Add metadata to explain each field in database
+# Ren2018
+# - Time (peak, start, end)
+# - PeakDensity
+# - Prominence
+# - AvgTemp (opt?)
+# - AvgDens (opt?)
+# Perry2018
+# - Time
+# - Patch Index
