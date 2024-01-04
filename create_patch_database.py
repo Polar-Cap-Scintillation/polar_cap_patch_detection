@@ -15,7 +15,7 @@ import re
 import h5py
 from procdbtools.amisr_lookup import AMISR_lookup
 
-starttime = dt.datetime(2016,1,1)
+starttime = dt.datetime(2016,1,31)
 endtime = dt.datetime(2016,2,1)
 output_file = 'test_patch_database_risrn.h5'
 
@@ -185,26 +185,37 @@ for exp in experiment_list:
     Perry2018['num_beams'].extend(np.full(time.shape, Nbeam))
 
 
+Ren2018_descriptions = {
+        'time': 'Unix time (seconds since January 1, 1970) of patch peak, start, and end respectively [Npatches x 3]',
+        'peak': 'Peak electron density of patch [Npatches]',
+        'prominence': 'Prominence of patch relative to background [Npatches]',
+        'avgTe': 'Average electron temperature between the start and end times of the patch and the upper and lower altitude bounds selected to identify patches [Npatches]',
+        'avgTi': 'Average ion temperature between the start and end times of the patch and the upper and lower altitude bounds selected to identify patches [Npatches]',
+        'avgNe': 'Average electron temperature between the start and end times of the patch and the upper and lower altitude bounds selected to identify patches [Npatches]'
+        }
+
+Perry2018_descriptions = {
+        'time': 'Unix time (seconds since January 1, 1970) of records [Nrecords]',
+        'patch_index': 'Polar Cap Patch Index across the entire Field of View [Nrecords]',
+        'num_beams': 'The total number of radar beams available at each time [Nrecords]'
+        }
+
+
 
 # save list of patch parameters to output hdf5 file
 with h5py.File(output_file, 'w') as h5:
     grp = h5.create_group('Ren2018')
+    grp.attrs['description'] = 'Patches identified from the Ren et al, 2018 algorithm and some information about each patch.  Arrays have a dimension Npatches indicating the total number of patches in this database.'
     for key, val in Ren2018.items():
         print(key, len(val))
-        grp.create_dataset(key, data=np.array(val))
+        ds = grp.create_dataset(key, data=np.array(val))
+        ds.attrs['description'] = Ren2018_descriptions[key]
+
     grp = h5.create_group('Perry2018')
+    grp.attrs['description'] = 'Polar Cap Patch Index as described in Perry & St. Maurice, 2018 indicating the general degree of "patchyness" of the radar FoV.  Arrays have a dimension Nrecords indicating the total number of time records (radar integration periods) in this database.'
     for key, val in Perry2018.items():
         print(key, len(val))
-        grp.create_dataset(key, data=np.array(val))
+        ds = grp.create_dataset(key, data=np.array(val))
+        ds.attrs['description'] = Perry2018_descriptions[key]
 
 
-# Add metadata to explain each field in database
-# Ren2018
-# - Time (peak, start, end)
-# - PeakDensity
-# - Prominence
-# - AvgTemp (opt?)
-# - AvgDens (opt?)
-# Perry2018
-# - Time
-# - Patch Index
