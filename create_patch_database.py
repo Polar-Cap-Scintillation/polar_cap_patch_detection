@@ -1,9 +1,10 @@
 # patch_detection_database.py
 # Find polar cap patches across a portion of the AMISR database
 # Automatically walk the RISR-N database and identify polar cap patches in each experiment
-# Patch detection based on the patch finding algorithm presented in Ren et al., 2018
-# Algorithm originally developed in MATLAB by Jiaen Ren @ University of Michigan
-# Conversion to python by Leslie Lamarche @ SRI International
+# Patch detection based on two patch finding algorithms:
+# Ren et al., 2018 algorithm originally developed in MATLAB by Jiaen Ren @ University of Michigan
+# Perry & St. Maurice, 2018 algorithm originally developed in MATLAB by Gareth Perry @ University of Saskatchewan
+# Conversion to python by Leslie Lamarche and Olu Jonah @ SRI International
 
 import numpy as np
 import datetime as dt
