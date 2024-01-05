@@ -99,7 +99,6 @@ def Ren2018_algorithm(filename):
             prominence.append(prop['prominences'][idx])
             avgte.append(np.nanmean(fit_Te[sidx:eidx,fit_aidx[0]:fit_aidx[1]]))
             avgti.append(np.nanmean(fit_Ti[sidx:eidx,fit_aidx[0]:fit_aidx[1]]))
-            print(fit_Ne[sidx:eidx,fit_aidx[0]:fit_aidx[1]])
             avgne.append(np.nanmean(fit_Ne[sidx:eidx,fit_aidx[0]:fit_aidx[1]]))
         except ValueError:
             continue
