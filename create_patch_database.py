@@ -15,10 +15,19 @@ import os
 import re
 import h5py
 from procdbtools.amisr_lookup import AMISR_lookup
+import argparse
 
-starttime = dt.datetime(2016,1,31)
-endtime = dt.datetime(2016,2,1)
-output_file = 'test_patch_database_risrn.h5'
+
+parser = argparse.ArgumentParser(description='Create a list of polar cap patches from the AMISR database.')
+parser.add_argument('start', help='start date for patch detection')
+parser.add_argument('end', help='end date for patch detection')
+parser.add_argument('-o', dest='output_file', help='output file name (default: patch_database.h5)', default='patch_database.h5')
+args = parser.parse_args()
+
+starttime = dt.datetime.fromisoformat(args.start)
+endtime = dt.datetime.fromisoformat(args.end)
+output_file = args.output_file
+
 
 def Ren2018_algorithm(filename):
 
