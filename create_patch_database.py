@@ -42,7 +42,7 @@ def Ren2018_algorithm(filename):
         Ne = f['NeFromPower/Ne_NoTr'][:,beam,:]
         fit_Te = f['FittedParams/Fits'][:,beam,:,-1,1] ##### Olu
         fit_Ti = f['FittedParams/Fits'][:,beam,:,0,1] ##### Olu
-        fit_Ne = f['FittedParams/Fits'][:,beam,:] ##### Olu
+        fit_Ne = f['FittedParams/Ne'][:,beam,:] ##### Olu
         fit_alt = f['FittedParams/Altitude'][beam,:] ##### Olu
 
     # transform density and altitude arrays into correct
@@ -99,6 +99,7 @@ def Ren2018_algorithm(filename):
             prominence.append(prop['prominences'][idx])
             avgte.append(np.nanmean(fit_Te[sidx:eidx,fit_aidx[0]:fit_aidx[1]]))
             avgti.append(np.nanmean(fit_Ti[sidx:eidx,fit_aidx[0]:fit_aidx[1]]))
+            print(fit_Ne[sidx:eidx,fit_aidx[0]:fit_aidx[1]])
             avgne.append(np.nanmean(fit_Ne[sidx:eidx,fit_aidx[0]:fit_aidx[1]]))
         except ValueError:
             continue
