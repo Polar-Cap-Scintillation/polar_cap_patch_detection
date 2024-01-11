@@ -182,17 +182,27 @@ for exp in experiment_list:
     else:
         print(filename)
 
-    time, peak, prom, avgte, avgti, avgne = Ren2018_algorithm(filename)
-    Ren2018['time'].extend(time)
-    Ren2018['peak'].extend(peak)
-    Ren2018['prominence'].extend(prom)
-    Ren2018['avgTe'].extend(avgte)
-    Ren2018['avgTi'].extend(avgti)
-    Ren2018['avgNe'].extend(avgne)
-    time, patch_index, Nbeam = Perry2018_algorithm(filename)
-    Perry2018['time'].extend(time)
-    Perry2018['patch_index'].extend(patch_index)
-    Perry2018['num_beams'].extend(np.full(time.shape, Nbeam))
+    # run both algorithnms on file and skip when errors occur
+    try:
+        Ren2018_output = Ren2018_algorithm(filename)
+        Perry2018_output = Perry2018_algorithm(filename)
+    except:
+        continue
+
+    #try:
+    #time, peak, prom, avgte, avgti, avgne = Ren2018_algorithm(filename)
+    Ren2018['time'].extend(Ren2018_output[0])
+    Ren2018['peak'].extend(Ren2018_output[1])
+    Ren2018['prominence'].extend(Ren2018_output[2])
+    Ren2018['avgTe'].extend(Ren2018_output[3])
+    Ren2018['avgTi'].extend(Ren2018_output[4])
+    Ren2018['avgNe'].extend(Ren2018_output[5])
+    #time, patch_index, Nbeam = Perry2018_algorithm(filename)
+    Perry2018['time'].extend(Perry2018_output[0])
+    Perry2018['patch_index'].extend(Perry2018_output[1])
+    Perry2018['num_beams'].extend(np.full(Perry2018_output[0].shape, Perry2018_output[2]))
+    #except:
+    #    continue
 
 
 Ren2018_descriptions = {
